@@ -31,7 +31,8 @@ import {
   YAxis,
 } from "recharts";
 
-const API = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const configuredApiUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const API = configuredApiUrl.endsWith("/api") ? configuredApiUrl : `${configuredApiUrl}/api`;
 const categoryColors = {
   Food: "#f09a73",
   Transport: "#7d9be8",
@@ -66,11 +67,20 @@ function Auth({ onAuth }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      const contentType = response.headers.get("content-type") || "";
+      const result = contentType.includes("application/json")
+        ? await response.json()
+        : null;
       if (!response.ok)
         throw new Error(
-          (await response.json()).message || "Unable to authenticate",
+          result?.message ||
+            "The API returned an HTML page. Check that VITE_API_URL points to the backend URL, not the Vercel frontend URL.",
         );
-      onAuth(await response.json());
+      if (!result)
+        throw new Error(
+          "The API returned an HTML page. Check that VITE_API_URL points to the backend URL, not the Vercel frontend URL.",
+        );
+      onAuth(result);
     } catch (requestError) {
       setError(
         requestError.message.includes("fetch")
